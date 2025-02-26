@@ -1,0 +1,70 @@
+services:
+  simulator:
+    image: ghcr.io/autowarefoundation/demo-packages:simulator
+    container_name: simulator
+    network_mode: host
+    volumes:
+      - ./etc/simulation:/autoware/scenario-sim
+      - .:/root/workspace
+      - ./log:/root/.ros/log
+    environment:
+      - ROS_DOMAIN_ID=88
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - CYCLONEDDS_URI=/root/workspace/cycloneDDS.xml
+    command: >
+      ros2 launch scenario_test_runner scenario_test_runner.launch.py
+      record:=false
+      scenario:=/autoware/scenario-sim/scenario/yield_maneuver_demo.yaml
+      sensor_model:=sample_sensor_kit
+      vehicle_model:=sample_vehicle
+      initialize_duration:=90
+      global_timeout:=$TIMEOUT
+      global_frame_rate:=20
+      launch_autoware:=false
+      launch_rviz:=false
+
+  planning-control:
+    image: ghcr.io/autowarefoundation/demo-packages:planning-control
+    container_name: planning-control
+    network_mode: host
+    deploy:
+    volumes:
+      - ./etc/simulation:/autoware/scenario-sim
+      - $CONF_FILE:/opt/autoware/share/autoware_launch/config/planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/autoware_behavior_path_static_obstacle_avoidance_module/static_obstacle_avoidance.param.yaml
+      - $COMMON_FILE:/opt/autoware/share/autoware_launch/config/planning/scenario_planning/common/common.param.yaml
+      - .:/root/workspace
+      - ./log:/root/.ros/log
+    environment:
+      - ROS_DOMAIN_ID=88
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - CYCLONEDDS_URI=/root/workspace/cycloneDDS.xml
+    command: >
+      ros2 launch autoware_launch planning_simulator.launch.xml
+      map_path:=/autoware/scenario-sim/map
+      vehicle_model:=sample_vehicle
+      sensor_model:=sample_sensor_kit
+      scenario_simulation:=true
+      rviz:=false
+      perception/enable_traffic_light:=false
+
+  visualizer:
+    image: ghcr.io/autowarefoundation/demo-packages:visualizer
+    network_mode: host
+    container_name: visualizer
+    volumes:
+      - ./etc/simulation:/autoware/scenario-sim
+      - .:/root/workspace
+      - ./log:/root/.ros/log
+    ports:
+      - 6080:6080
+      - 5999:5999
+    environment:
+      - ROS_DOMAIN_ID=88
+      - VNC_ENABLED=true
+      - RVIZ_CONFIG=/autoware/scenario-sim/rviz/scenario_simulator.rviz
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+      - NGROK_URL=${NGROK_URL}
+      - CYCLONEDDS_URI=/root/workspace/cycloneDDS.xml
+    command: >-
+      sleep infinity
+
